@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Citas Médico Familiar & Auditoría QA (McCabe)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js CDN -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <!-- Heroicons SVG CDN / FontAwesome icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col" x-data="appData()" x-init="initApp()" x-cloak>
+
+  <!-- Navbar -->
+  <header class="bg-indigo-900 text-white shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-inner">
+          <i class="fa-solid fa-hospital-user text-xl text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight">Salud Familiar QA</h1>
+          <p class="text-xs text-indigo-200">Auditoría de IA con McCabe & Cobertura de Ramas 100%</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex space-x-1 sm:space-x-2 mt-2 sm:mt-0">
+        <button 
+          @click="currentTab = 'citas'"
+          :class="currentTab === 'citas' ? 'bg-indigo-700 text-white' : 'text-indigo-200 hover:bg-indigo-800 hover:text-white'"
+          class="px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-calendar-check"></i>
+          <span>Citas Médicas</span>
+        </button>
+        <button 
+          @click="currentTab = 'pacientes'"
+          :class="currentTab === 'pacientes' ? 'bg-indigo-700 text-white' : 'text-indigo-200 hover:bg-indigo-800 hover:text-white'"
+          class="px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-users"></i>
+          <span>Pacientes & Médicos</span>
+        </button>
+        <button 
+          @click="currentTab = 'auditoria'"
+          :class="currentTab === 'auditoria' ? 'bg-indigo-700 text-white' : 'text-indigo-200 hover:bg-indigo-800 hover:text-white'"
+          class="px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-chart-diagram"></i>
+          <span>Auditoría McCabe QA</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-grow w-full">
+
+    <!-- Global Notification Banner -->
+    <div x-show="alerta.mensaje" 
+         x-transition 
+         :class="alerta.tipo === 'error' ? 'bg-rose-50 border-rose-300 text-rose-800' : 'bg-emerald-50 border-emerald-300 text-emerald-800'"
+         class="mb-6 p-4 rounded-xl border flex items-start justify-between shadow-sm">
+      <div class="flex items-center space-x-3">
+        <i :class="alerta.tipo === 'error' ? 'fa-solid fa-circle-exclamation text-rose-600' : 'fa-solid fa-circle-check text-emerald-600'" class="text-xl"></i>
+        <div>
+          <h4 class="font-bold text-sm" x-text="alerta.titulo"></h4>
+          <p class="text-xs sm:text-sm mt-0.5" x-text="alerta.mensaje"></p>
+          <template x-if="alerta.detalles && alerta.detalles.length > 0">
+            <ul class="list-disc list-inside text-xs mt-1.5 space-y-0.5 font-medium">
+              <template x-for="det in alerta.detalles" :key="det">
+                <li x-text="det"></li>
+              </template>
+            </ul>
+          </template>
+        </div>
+      </div>
+      <button @click="alerta.mensaje = ''" class="text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- TAB 1: GESTIÓN Y AGENDAMIENTO DE CITAS                           -->
+    <!-- ================================================================= -->
+    <div x-show="currentTab === 'citas'" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Formulario Agendar Cita -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-1">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h2 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+              <i class="fa-solid fa-plus-circle text-indigo-600"></i>
+              <span>Agendar Nueva Cita</span>
+            </h2>
+            <span class="text-[11px] font-semibold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">
+              Validación en Vivo
+            </span>
+          </div>
+
+          <form @submit.prevent="crearCita()" class="mt-4 space-y-4">
+            <!-- Selección de Paciente -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Paciente</label>
+              <select x-model.number="formCita.paciente_id" @change="actualizarInfoPaciente()" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-indigo-500">
+                <option value="">-- Seleccionar Paciente --</option>
+                <template x-for="p in pacientes" :key="p.id">
+                  <option :value="p.id" x-text="`${p.nombre} (${p.edad} años)`"></option>
+                </template>
+              </select>
+
+              <!-- Badge de Tipo de Paciente y Tutor -->
+              <div x-show="pacienteSeleccionado" class="mt-2 text-xs p-2.5 rounded-lg border"
+                   :class="pacienteSeleccionado && pacienteSeleccionado.edad < 18 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-blue-50 border-blue-200 text-blue-800'">
+                <template x-if="pacienteSeleccionado && pacienteSeleccionado.edad < 18">
+                  <div>
+                    <span class="font-bold flex items-center space-x-1">
+                      <i class="fa-solid fa-child"></i>
+                      <span>Paciente Pediátrico (< 18 años)</span>
+                    </span>
+                    <p class="mt-1 text-[11px]">
+                      <strong>Tutor:</strong> <span x-text="pacienteSeleccionado.tutor_nombre || 'No registrado'"></span><br>
+                      <strong>Teléfono Tutor:</strong> <span x-text="pacienteSeleccionado.tutor_telefono || 'No registrado'"></span>
+                    </p>
+                    <p class="mt-1 text-[10px] text-amber-900 font-semibold">⚠️ Requiere médico con especialidad 'Pediatria'.</p>
+                  </div>
+                </template>
+                <template x-if="pacienteSeleccionado && pacienteSeleccionado.edad >= 18">
+                  <div>
+                    <span class="font-bold flex items-center space-x-1">
+                      <i class="fa-solid fa-user"></i>
+                      <span>Paciente Adulto (>= 18 años)</span>
+                    </span>
+                    <p class="mt-1 text-[10px] text-blue-900 font-semibold">⚠️ Solo admite Medicina Familiar o General (No Pediatría).</p>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Selección de Médico -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Médico Especialista</label>
+              <select x-model.number="formCita.medico_id" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-indigo-500">
+                <option value="">-- Seleccionar Médico --</option>
+                <template x-for="m in medicos" :key="m.id">
+                  <option :value="m.id" x-text="`${m.nombre} - ${m.especialidad}`"></option>
+                </template>
+              </select>
+            </div>
+
+            <!-- Fecha y Hora -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha y Hora de la Cita</label>
+              <input type="datetime-local" x-model="formCita.fecha_hora" required class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-indigo-500">
+              <p class="text-[10px] text-slate-500 mt-1">
+                Lunes a Viernes, 08:00 a 17:00 en bloques de 30m (:00 o :30). Franja de 13:00 a 14:00 es receso.
+              </p>
+            </div>
+
+            <!-- Motivo -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Motivo de Consulta</label>
+              <input type="text" x-model="formCita.motivo" placeholder="Ej: Control pediátrico semestral" class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-indigo-500">
+            </div>
+
+            <!-- Botón Submit -->
+            <button type="submit" :disabled="loading" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg text-xs shadow transition flex items-center justify-center space-x-2">
+              <i class="fa-solid fa-shield-check"></i>
+              <span>Auditar y Confirmar Cita</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- Listado de Citas Registradas -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2 flex flex-col">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+              <h2 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+                <i class="fa-solid fa-list-check text-indigo-600"></i>
+                <span>Citas del Sistema</span>
+              </h2>
+              <p class="text-xs text-slate-500">Registro con oráculo de penalización condicional (< 24h)</p>
+            </div>
+            <button @click="cargarCitas()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg transition flex items-center space-x-1">
+              <i class="fa-solid fa-arrows-rotate"></i>
+              <span>Actualizar</span>
+            </button>
+          </div>
+
+          <div class="mt-4 overflow-x-auto flex-grow">
+            <table class="min-w-full text-xs text-left">
+              <thead class="bg-slate-100 text-slate-600 uppercase font-semibold">
+                <tr>
+                  <th class="py-2.5 px-3 rounded-l-lg">ID</th>
+                  <th class="py-2.5 px-3">Paciente</th>
+                  <th class="py-2.5 px-3">Médico</th>
+                  <th class="py-2.5 px-3">Fecha / Hora</th>
+                  <th class="py-2.5 px-3">Estado</th>
+                  <th class="py-2.5 px-3 rounded-r-lg text-center">Acción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <template x-for="c in citas" :key="c.id">
+                  <tr class="hover:bg-slate-50 transition">
+                    <td class="py-2.5 px-3 font-semibold text-slate-500" x-text="`#${c.id}`"></td>
+                    <td class="py-2.5 px-3">
+                      <div class="font-bold text-slate-800" x-text="c.paciente_nombre"></div>
+                      <span class="text-[10px] text-slate-500" x-text="`${c.paciente_edad} años`"></span>
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <div class="font-medium text-slate-800" x-text="c.medico_nombre"></div>
+                      <span class="text-[10px] text-indigo-600 font-semibold" x-text="c.medico_especialidad"></span>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-600">
+                      <span x-text="formatearFecha(c.fecha_hora)"></span>
+                    </td>
+                    <td class="py-2.5 px-3">
+                      <span :class="obtenerClaseEstado(c.estado)" class="px-2 py-0.5 rounded-full text-[10px] font-bold" x-text="c.estado"></span>
+                      <template x-if="c.penalizacion_aplicada === 1">
+                        <div class="text-[10px] text-rose-600 font-bold mt-0.5">
+                          <i class="fa-solid fa-receipt"></i> Cargo: $<span x-text="c.penalizacion_monto"></span>
+                        </div>
+                      </template>
+                    </td>
+                    <td class="py-2.5 px-3 text-center">
+                      <template x-if="c.estado === 'CONFIRMADA'">
+                        <button @click="abrirModalCancelacion(c)" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-2.5 py-1 rounded-lg text-xs font-semibold transition">
+                          Cancelar
+                        </button>
+                      </template>
+                      <template x-if="c.estado !== 'CONFIRMADA'">
+                        <span class="text-slate-400 text-[11px] italic">Finalizada</span>
+                      </template>
+                    </td>
+                  </tr>
+                </template>
+                <template x-if="citas.length === 0">
+                  <tr>
+                    <td colspan="6" class="text-center py-6 text-slate-400">
+                      No hay citas registradas en el sistema. Agende una arriba.
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- TAB 2: PACIENTES Y MÉDICOS                                        -->
+    <!-- ================================================================= -->
+    <div x-show="currentTab === 'pacientes'" class="space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <!-- Lista de Médicos -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-base font-bold text-slate-800 flex items-center space-x-2 pb-3 border-b border-slate-100">
+            <i class="fa-solid fa-user-doctor text-indigo-600"></i>
+            <span>Plantilla Médica Activa</span>
+          </h2>
+          <div class="mt-4 space-y-3">
+            <template x-for="m in medicos" :key="m.id">
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <h4 class="font-bold text-sm text-slate-800" x-text="m.nombre"></h4>
+                  <p class="text-xs text-indigo-600 font-semibold" x-text="m.especialidad"></p>
+                  <p class="text-[11px] text-slate-500" x-text="`${m.email} | ${m.telefono}`"></p>
+                </div>
+                <span class="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                  Activo
+                </span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Formulario e Historial de Pacientes -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-base font-bold text-slate-800 flex items-center space-x-2 pb-3 border-b border-slate-100">
+            <i class="fa-solid fa-user-plus text-indigo-600"></i>
+            <span>Registrar Nuevo Paciente</span>
+          </h2>
+          <form @submit.prevent="crearPaciente()" class="mt-4 space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo</label>
+              <input type="text" x-model="formPaciente.nombre" required placeholder="Ej: Valentina Morales" class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Edad (Años)</label>
+                <input type="number" x-model.number="formPaciente.edad" required min="0" max="120" placeholder="Ej: 9" class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Teléfono</label>
+                <input type="text" x-model="formPaciente.telefono" placeholder="Ej: 0981112233" class="w-full text-xs rounded-lg border-slate-300 border p-2 focus:ring-2">
+              </div>
+            </div>
+
+            <!-- Campos Condicionales de Tutor si es < 18 -->
+            <div x-show="formPaciente.edad < 18 && formPaciente.edad !== null" class="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
+              <p class="text-xs font-bold text-amber-800">
+                <i class="fa-solid fa-id-card"></i> Datos de Tutor Legal (Obligatorio para menores de 18):
+              </p>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="text" x-model="formPaciente.tutor_nombre" placeholder="Nombre de tutor" class="text-xs rounded-lg border-amber-300 border p-1.5 w-full">
+                <input type="text" x-model="formPaciente.tutor_telefono" placeholder="Teléfono de tutor" class="text-xs rounded-lg border-amber-300 border p-1.5 w-full">
+              </div>
+            </div>
+
+            <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 rounded-lg text-xs shadow transition">
+              Guardar Paciente
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- TAB 3: PANEL DE AUDITORÍA McCABE & COBERTURA DE CÓDIGO (QA)       -->
+    <!-- ================================================================= -->
+    <div x-show="currentTab === 'auditoria'" class="space-y-6">
+      
+      <!-- Banner Pedagógico del Taller -->
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-md border border-indigo-900">
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="text-xs uppercase tracking-wider bg-indigo-500/20 text-indigo-300 px-2.5 py-1 rounded-full font-bold border border-indigo-400/30">
+              Enfoque Pedagógico: Ingeniero QA Auditor
+            </span>
+            <h2 class="text-xl font-bold mt-2">Pruebas de Caja Blanca en la Era de la IA</h2>
+            <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-3xl">
+              "Para auditar una IA, no basta con saber qué hace el sistema; debemos auditar todos los caminos posibles que la máquina decidió tomar para lograrlo. Entender la matemática estructural detrás del software es lo que te hace Senior."
+            </p>
+          </div>
+          <div class="hidden sm:block text-right">
+            <div class="text-2xl font-black text-emerald-400">100%</div>
+            <div class="text-[11px] text-slate-300">Branch Coverage</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métricas de McCabe de las 4 Reglas Críticas -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <template x-for="r in auditoriaQA.mccabeRules" :key="r.id">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-400" x-text="`Regla 0${r.id}`"></span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  V(G) &le; 10 Aprobado
+                </span>
+              </div>
+              <h3 class="font-bold text-sm text-slate-800 mt-1.5" x-text="r.nombre"></h3>
+              <p class="text-xs text-slate-500 mt-1 line-clamp-2" x-text="r.descripcion"></p>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+              <span class="text-slate-600">Complejidad V(G):</span>
+              <span class="font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-lg text-sm" x-text="`V(G) = ${r.complejidadCiclica_VG}`"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- El Caso de Estudio Diapositiva 8: Regla de Penalización Tardía -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <span class="text-[11px] font-bold text-indigo-600 uppercase tracking-wider">Taller Paso 1 & 2</span>
+            <h3 class="text-base font-bold text-slate-800">Cálculo Manual y Evitación del "Falso 100%" (Modelo PIE)</h3>
+          </div>
+          <span class="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2.5 py-1 rounded-lg border border-indigo-200">
+            V(G) = P + 1 = 2 + 1 = 3
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <!-- Código Lógico -->
+          <div class="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-xs">
+            <p class="text-slate-400 text-[10px] mb-2 font-sans uppercase font-bold">// Lógica Condicional Auditada</p>
+            <code>
+              if (cancelacionTardia && !esEmergencia) {<br>
+              &nbsp;&nbsp;aplicarPenalizacion();<br>
+              }
+            </code>
+            <div class="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-300 font-sans space-y-1">
+              <p>• Predicado 1 (P1): <code>cancelacionTardia (&lt; 24h)</code></p>
+              <p>• Predicado 2 (P2): <code>!esEmergencia</code></p>
+              <p class="text-emerald-400 font-semibold">• 3 Caminos Linealmente Independientes</p>
+            </div>
+          </div>
+
+          <!-- Tabla de 3 Caminos Independientes -->
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs md:col-span-2">
+            <h4 class="font-bold text-slate-700 mb-2">Matriz de Pruebas de Caminos Básicos (Basis Paths):</h4>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead class="text-[11px] text-slate-500 uppercase border-b border-slate-200">
+                  <tr>
+                    <th class="pb-1.5">Camino</th>
+                    <th class="pb-1.5">Cancelación Tardía</th>
+                    <th class="pb-1.5">Es Emergencia</th>
+                    <th class="pb-1.5">Oráculo Estricto (Estado y Penalización)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 text-[11px]">
+                  <tr>
+                    <td class="py-2 font-bold text-indigo-600">Camino 1</td>
+                    <td class="py-2 text-rose-600 font-semibold">False (&ge; 24h)</td>
+                    <td class="py-2 text-slate-500">Indiferente</td>
+                    <td class="py-2 text-emerald-700 font-bold">CANCELADA_A_TIEMPO | $0.00</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 font-bold text-indigo-600">Camino 2</td>
+                    <td class="py-2 text-emerald-600 font-semibold">True (&lt; 24h)</td>
+                    <td class="py-2 text-emerald-600 font-semibold">True</td>
+                    <td class="py-2 text-blue-700 font-bold">CANCELADA_EXONERADA | $0.00</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 font-bold text-indigo-600">Camino 3</td>
+                    <td class="py-2 text-emerald-600 font-semibold">True (&lt; 24h)</td>
+                    <td class="py-2 text-rose-600 font-semibold">False</td>
+                    <td class="py-2 text-rose-700 font-bold">CANCELADA_CON_PENALIZACION | $15.00</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="mt-3 p-2 bg-indigo-50 border border-indigo-200 rounded-lg text-[11px] text-indigo-900">
+              <strong>Prevención de Tests Zombis (Modelo PIE):</strong> Cada test valida Execution (pasa por la rama), Infection (calcula el monto) y Detection (aserciones estrictas sobre las 3 propiedades del resultado).
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cuestionario Metacognitivo Diapositiva 12 -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <h3 class="text-base font-bold text-slate-800 flex items-center space-x-2">
+          <i class="fa-solid fa-clipboard-question text-indigo-600"></i>
+          <span>Reflexión Metacognitiva: Cuestionario de Auditoría (Slide 12)</span>
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <h4 class="font-bold text-slate-800">1. ¿Conozco el número exacto de caminos lógicos V(G) antes de leer los tests generados por la IA?</h4>
+            <p class="text-slate-600 mt-1">
+              <strong>Sí:</strong> Calculamos a priori la complejidad topológica mediante $V(G) = P + 1$ para cada regla. Por ejemplo, en la cancelación tardía sabemos matemáticamente que existen exactamente 3 caminos antes de escribir cualquier test.
+            </p>
+          </div>
+
+          <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <h4 class="font-bold text-slate-800">2. ¿El 100% de cobertura que reporta la herramienta incluye aserciones (oráculos) fuertes?</h4>
+            <p class="text-slate-600 mt-1">
+              <strong>Sí:</strong> Se erradicaron los "tests zombis". Cada prueba evalúa múltiples aserciones de valor (estados canónicos, flags booleanas, montos monetarios precisos y motivos textuales).
+            </p>
+          </div>
+
+          <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <h4 class="font-bold text-slate-800">3. ¿Están evaluadas todas las condiciones lógicas, o solo las líneas de código superficiales?</h4>
+            <p class="text-slate-600 mt-1">
+              <strong>Todas las condiciones:</strong> Se alcanzó 100% en Cobertura de Ramas (Branch Coverage), evaluando cada decisión tanto en su rama True como False, incluyendo combinaciones booleanas de cortocircuito.
+            </p>
+          </div>
+
+          <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+            <h4 class="font-bold text-slate-800">4. ¿He forzado intencionalmente fallos (mutaciones) para verificar si los tests de la IA los detectan?</h4>
+            <p class="text-slate-600 mt-1">
+              <strong>Sí:</strong> Se incorporaron pruebas de control defensivo (fechas corruptas, parámetros nulos, solapamientos cruzados) verificando que el oráculo detecte de inmediato cualquier mutante lógico.
+            </p>
+          </div>
+
+          <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 md:col-span-2">
+            <h4 class="font-bold text-slate-800">5. ¿Es la complejidad del código generado tan alta que la acción correcta es refactorizar en lugar de testear?</h4>
+            <p class="text-slate-600 mt-1">
+              <strong>Controlada y modular:</strong> Todas las funciones críticas del sistema mantienen $V(G) \le 7$, muy por debajo del límite de advertencia de McCabe ($V(G) = 10$), evitando deuda técnica y garantizando mantenibilidad.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ================================================================= -->
+  <!-- MODAL DE CANCELACIÓN DE CITAS (AUDITORÍA DIAPOSITIVA 8)           -->
+  <!-- ================================================================= -->
+  <div x-show="modalCancelacion.abierto" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div @click.away="modalCancelacion.abierto = false" class="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h3 class="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
+            <i class="fa-solid fa-ban text-rose-600"></i>
+            <span>Auditoría de Cancelación de Cita</span>
+          </h3>
+          <p class="text-[11px] text-slate-500" x-text="`Cita #${modalCancelacion.cita?.id} - ${modalCancelacion.cita?.paciente_nombre}`"></p>
+        </div>
+        <button @click="modalCancelacion.abierto = false" class="text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="mt-4 space-y-4">
+        <!-- Selector de Escenario de Prueba / Simulación -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Escenario Temporal a Simular:</label>
+          <div class="space-y-2">
+            <label class="flex items-center space-x-2 text-xs p-2 rounded-lg border cursor-pointer"
+                   :class="modalCancelacion.tipoTiempo === 'a_tiempo' ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-700'">
+              <input type="radio" value="a_tiempo" x-model="modalCancelacion.tipoTiempo" class="text-indigo-600">
+              <span>Camino 1: Con más de 24 horas de antelación (Sin penalización)</span>
+            </label>
+            <label class="flex items-center space-x-2 text-xs p-2 rounded-lg border cursor-pointer"
+                   :class="modalCancelacion.tipoTiempo === 'tardia' ? 'bg-indigo-50 border-indigo-300 text-indigo-900 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-700'">
+              <input type="radio" value="tardia" x-model="modalCancelacion.tipoTiempo" class="text-indigo-600">
+              <span>Camino 2 / 3: Cancelación Tardía (< 24 horas de antelación)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Checkbox de Causa de Emergencia -->
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <label class="flex items-start space-x-2.5 cursor-pointer">
+            <input type="checkbox" x-model="modalCancelacion.esEmergencia" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500">
+            <div>
+              <span class="text-xs font-bold text-slate-800">Causa de Emergencia Médica Comprobada</span>
+              <p class="text-[11px] text-slate-500">Si se marca, exonera el cobro de penalización en cancelaciones tardías.</p>
+            </div>
+          </label>
+        </div>
+
+        <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-950">
+          <span class="font-bold">Predicción de Oráculo QA:</span>
+          <p class="mt-1 text-[11px]" x-text="obtenerPrediccionCancelacion()"></p>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+          <button @click="modalCancelacion.abierto = false" class="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition">
+            Volver
+          </button>
+          <button @click="ejecutarCancelacion()" class="px-3.5 py-1.5 text-xs bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow transition flex items-center space-x-1">
+            <i class="fa-solid fa-check"></i>
+            <span>Confirmar Cancelación</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between">
+      <span>7mo Semestre - Pruebas, Control de Calidad y Mantenimiento | <strong>Daniel Cadena</strong></span>
+      <span class="mt-1 sm:mt-0">Node.js Express + SQLite + Alpine.js + Jest (McCabe V(G) Audit)</span>
+    </div>
+  </footer>
+
+  <!-- Alpine.js Application Logic -->
+  <script>
+    function appData() {
+      return {
+        currentTab: 'citas',
+        loading: false,
+        medicos: [],
+        pacientes: [],
+        citas: [],
+        pacienteSeleccionado: null,
+        alerta: {
+          tipo: 'info',
+          titulo: '',
+          mensaje: '',
+          detalles: []
+        },
+        formCita: {
+          medico_id: '',
+          paciente_id: '',
+          fecha_hora: '',
+          motivo: ''
+        },
+        formPaciente: {
+          nombre: '',
+          edad: null,
+          telefono: '',
+          tutor_nombre: '',
+          tutor_telefono: ''
+        },
+        modalCancelacion: {
+          abierto: false,
+          cita: null,
+          tipoTiempo: 'tardia',
+          esEmergencia: false
+        },
+        auditoriaQA: {
+          mccabeRules: []
+        },
+
+        async initApp() {
+          await this.cargarMedicos();
+          await this.cargarPacientes();
+          await this.cargarCitas();
+          await this.cargarAuditoria();
+          this.establecerFechaSugerida();
+        },
+
+        establecerFechaSugerida() {
+          // Próximo martes a las 10:00 AM
+          const d = new Date();
+          d.setDate(d.getDate() + ((2 + 7 - d.getDay()) % 7 || 7));
+          d.setHours(10, 0, 0, 0);
+          const tzOffset = d.getTimezoneOffset() * 60000;
+          this.formCita.fecha_hora = new Date(d - tzOffset).toISOString().slice(0, 16);
+        },
+
+        async cargarMedicos() {
+          try {
+            const res = await fetch('/api/medicos');
+            this.medicos = await res.json();
+          } catch (e) {
+            console.error('Error al cargar médicos', e);
+          }
+        },
+
+        async cargarPacientes() {
+          try {
+            const res = await fetch('/api/pacientes');
+            this.pacientes = await res.json();
+          } catch (e) {
+            console.error('Error al cargar pacientes', e);
+          }
+        },
+
+        async cargarCitas() {
+          try {
+            const res = await fetch('/api/citas');
+            this.citas = await res.json();
+          } catch (e) {
+            console.error('Error al cargar citas', e);
+          }
+        },
+
+        async cargarAuditoria() {
+          try {
+            const res = await fetch('/api/qa/audit');
+            this.auditoriaQA = await res.json();
+          } catch (e) {
+            console.error('Error al cargar auditoría', e);
+          }
+        },
+
+        actualizarInfoPaciente() {
+          this.pacienteSeleccionado = this.pacientes.find(p => p.id === this.formCita.paciente_id) || null;
+        },
+
+        async crearCita() {
+          this.loading = true;
+          this.alerta.mensaje = '';
+          try {
+            const res = await fetch('/api/citas', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.formCita)
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+              this.alerta = {
+                tipo: 'exito',
+                titulo: '¡Cita Médica Aprobada!',
+                mensaje: data.mensaje,
+                detalles: []
+              };
+              this.formCita.motivo = '';
+              await this.cargarCitas();
+            } else {
+              this.alerta = {
+                tipo: 'error',
+                titulo: 'Auditoría de Calidad: Violación de Reglas Clínicas',
+                mensaje: data.error || 'No fue posible agendar la cita.',
+                detalles: data.errores || [data.detalle]
+              };
+            }
+          } catch (e) {
+            this.alerta = {
+              tipo: 'error',
+              titulo: 'Error de Red',
+              mensaje: e.message,
+              detalles: []
+            };
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async crearPaciente() {
+          try {
+            const res = await fetch('/api/pacientes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.formPaciente)
+            });
+            if (res.ok) {
+              await this.cargarPacientes();
+              this.alerta = {
+                tipo: 'exito',
+                titulo: 'Paciente Registrado',
+                mensaje: 'El paciente fue agregado exitosamente a la base de datos.',
+                detalles: []
+              };
+              this.formPaciente = { nombre: '', edad: null, telefono: '', tutor_nombre: '', tutor_telefono: '' };
+              this.currentTab = 'citas';
+            }
+          } catch (e) {
+            alert('Error al registrar paciente: ' + e.message);
+          }
+        },
+
+        abrirModalCancelacion(cita) {
+          this.modalCancelacion.cita = cita;
+          this.modalCancelacion.tipoTiempo = 'tardia';
+          this.modalCancelacion.esEmergencia = false;
+          this.modalCancelacion.abierto = true;
+        },
+
+        obtenerPrediccionCancelacion() {
+          if (this.modalCancelacion.tipoTiempo === 'a_tiempo') {
+            return "Camino 1: cancelacionTardia = False -> Sin Penalización ($0.00). Estado: CANCELADA_A_TIEMPO.";
+          }
+          if (this.modalCancelacion.esEmergencia) {
+            return "Camino 2: cancelacionTardia = True & esEmergencia = True -> Exonerado ($0.00). Estado: CANCELADA_EXONERADA.";
+          }
+          return "Camino 3: cancelacionTardia = True & esEmergencia = False -> Aplica Penalización ($15.00). Estado: CANCELADA_CON_PENALIZACION.";
+        },
+
+        async ejecutarCancelacion() {
+          const cita = this.modalCancelacion.cita;
+          if (!cita) return;
+
+          // Simular fecha de cancelación según la opción
+          const fechaCita = new Date(cita.fecha_hora);
+          let fechaCancelacionSimulada;
+
+          if (this.modalCancelacion.tipoTiempo === 'a_tiempo') {
+            // 48 horas antes de la cita
+            fechaCancelacionSimulada = new Date(fechaCita.getTime() - 48 * 60 * 60 * 1000).toISOString();
+          } else {
+            // 2 horas antes de la cita (< 24h)
+            fechaCancelacionSimulada = new Date(fechaCita.getTime() - 2 * 60 * 60 * 1000).toISOString();
+          }
+
+          try {
+            const res = await fetch(`/api/citas/${cita.id}/cancelar`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                esEmergencia: this.modalCancelacion.esEmergencia,
+                fechaCancelacionSimulada
+              })
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+              this.modalCancelacion.abierto = false;
+              await this.cargarCitas();
+              this.alerta = {
+                tipo: 'exito',
+                titulo: 'Cancelación Auditada y Procesada',
+                mensaje: `Nuevo estado: ${data.cita.estado}. Motivo: ${data.auditoria.motivo}`,
+                detalles: [
+                  `Horas de antelación: ${data.auditoria.horasAnticipacion}h`,
+                  `Penalización aplicada: ${data.auditoria.aplicaPenalizacion ? '$' + data.auditoria.montoPenalizacion : 'Exonerado ($0.00)'}`
+                ]
+              };
+            }
+          } catch (e) {
+            alert('Error al cancelar: ' + e.message);
+          }
+        },
+
+        formatearFecha(str) {
+          if (!str) return '';
+          const d = new Date(str);
+          return d.toLocaleString('es-EC', { dateStyle: 'short', timeStyle: 'short' });
+        },
+
+        obtenerClaseEstado(estado) {
+          switch (estado) {
+            case 'CONFIRMADA':
+              return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+            case 'CANCELADA_A_TIEMPO':
+              return 'bg-blue-50 text-blue-700 border border-blue-200';
+            case 'CANCELADA_EXONERADA':
+              return 'bg-amber-50 text-amber-700 border border-amber-200';
+            case 'CANCELADA_CON_PENALIZACION':
+              return 'bg-rose-50 text-rose-700 border border-rose-200';
+            default:
+              return 'bg-slate-100 text-slate-700 border border-slate-200';
+          }
+        }
+      };
+    }
+  </script>
+</body>
+</html>

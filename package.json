@@ -1,0 +1,48 @@
+{
+  "name": "family-doctor-qa-mccabe",
+  "version": "1.0.0",
+  "description": "Sistema de citas de médico familiar con auditoría de caja blanca, complejidad ciclomática de McCabe y cobertura de ramas",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "jest --coverage",
+    "test:watch": "jest --watch",
+    "test:verbose": "jest --verbose --coverage",
+    "audit:metrics": "node scripts/calculate_mccabe.js"
+  },
+  "keywords": [
+    "mccabe",
+    "cyclomatic-complexity",
+    "white-box-testing",
+    "qa",
+    "code-coverage",
+    "branch-coverage",
+    "express",
+    "alpinejs"
+  ],
+  "author": "Daniel Cadena",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/rules/**/*.js",
+      "src/services/**/*.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      }
+    }
+  }
+}
